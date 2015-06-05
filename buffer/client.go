@@ -25,7 +25,8 @@ type Client struct {
 	BaseURL   *url.URL
 	UserAgent string
 
-	UserService *UserService
+	UserService    *UserService
+	ProfileService *ProfileService
 }
 
 /*
@@ -57,6 +58,7 @@ func NewClient(httpClient *http.Client) *Client {
 	baseURL, _ := url.Parse(baseURL)
 	client := &Client{client: httpClient, BaseURL: baseURL, UserAgent: userAgent}
 	client.UserService = &UserService{client: client}
+	client.ProfileService = &ProfileService{client: client}
 	return client
 }
 
