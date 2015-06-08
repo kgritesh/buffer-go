@@ -8,6 +8,9 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"reflect"
+
+	"github.com/google/go-querystring/query"
 )
 
 const (
@@ -27,6 +30,7 @@ type Client struct {
 
 	UserService    *UserService
 	ProfileService *ProfileService
+	UpdateService  *UpdateService
 }
 
 /*
@@ -59,6 +63,7 @@ func NewClient(httpClient *http.Client) *Client {
 	client := &Client{client: httpClient, BaseURL: baseURL, UserAgent: userAgent}
 	client.UserService = &UserService{client: client}
 	client.ProfileService = &ProfileService{client: client}
+	client.UpdateService = &UpdateService{client: client}
 	return client
 }
 
@@ -92,6 +97,28 @@ func (client *Client) NewRequest(method string, urlStr string, body interface{})
 	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
+}
+
+// addOptions adds the parameters in opt as URL query parameters to s.  opt
+// must be a struct whose fields may contain "url" tags.
+func addOptions(s string, opt interface{}) (string, error) {
+	v := reflect.ValueOf(opt)
+	if v.Kind() == reflect.Ptr && v.IsNil() {
+		return s, nil
+	}
+
+	u, err := url.Parse(s)
+	if err != nil {
+		return s, err
+	}
+
+	qs, err := query.Values(opt)
+	if err != nil {
+		return s, err
+	}
+
+	u.RawQuery = qs.Encode()
+	return u.String(), nil
 }
 
 // Do sends an API request and returns the API response.  The API response is

@@ -47,8 +47,8 @@ type Profile struct {
 	UserID            string     `json:"user_id,omitempty"`
 }
 
-//List the current User all Profiles
-func (profileService *ProfileService) List() ([]Profile, *http.Response, error) {
+//ListProfiles the current User all Profiles
+func (profileService *ProfileService) ListProfiles() ([]Profile, *http.Response, error) {
 	req, err := profileService.client.NewRequest("GET", getProfileListURL, nil)
 
 	if err != nil {
@@ -63,4 +63,48 @@ func (profileService *ProfileService) List() ([]Profile, *http.Response, error) 
 	}
 	fmt.Println("Profiles are ", profiles)
 	return *profiles, resp, err
+}
+
+//GetProfile fetches the specified profile
+//
+//https://api.bufferapp.com/1/profiles/<profile_id>.json
+func (profileService *ProfileService) GetProfile(profileID string) (*Profile, *http.Response, error) {
+	url := fmt.Sprintf(getProfileURL, profileID)
+
+	req, err := profileService.client.NewRequest("GET", url, nil)
+
+	if err != nil {
+		return nil, nil, err
+	}
+
+	profile := &Profile{}
+	resp, err := profileService.client.Do(req, profile)
+
+	if err != nil {
+		return nil, resp, err
+	}
+	fmt.Println("Profile is ", profile)
+	return profile, resp, err
+}
+
+//GetSchedule fetches all the posting schedule for the specified profile
+//
+//https://api.bufferapp.com/1/profiles/<profile_id>/schedules.json
+func (profileService *ProfileService) GetSchedule(profileID string) ([]Schedule, *http.Response, error) {
+	url := fmt.Sprintf(getProfileSchedulesURL, profileID)
+
+	req, err := profileService.client.NewRequest("GET", url, nil)
+
+	if err != nil {
+		return nil, nil, err
+	}
+
+	schedules := new([]Schedule)
+	resp, err := profileService.client.Do(req, schedules)
+
+	if err != nil {
+		return nil, resp, err
+	}
+	fmt.Println("Schedules are", *schedules)
+	return *schedules, resp, err
 }
