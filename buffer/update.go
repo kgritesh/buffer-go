@@ -3,6 +3,8 @@ package buffer
 import (
 	"fmt"
 	"net/http"
+
+	"github.com/mitchellh/mapstructure"
 )
 
 const (
@@ -10,6 +12,13 @@ const (
 	getPendingUpdates     = "profiles/%s/updates/pending.json"
 	getSentUpdates        = "profiles/%s/updates/sent.json"
 	getUpdateInteractions = "updates/%s/interactions.json"
+	reorderUpdates        = "profiles/%s/updates/reorder.json"
+	shuffleUpdates        = "profiles/%s/updates/shuffle.json"
+	createUpdate          = "updates/create.json"
+	editUpdate            = "updates/%s/update.json"
+	shareUpdate           = "updates/%s/share.json"
+	deleteUpdate          = "updates/%s/destroy.json"
+	moveUpdateToTop       = "updates/%s/move_to_top.json"
 )
 
 // UpdateService handles communication with the update related
@@ -113,7 +122,8 @@ func (updateService *UpdateService) getUpdateList(url string, profileID string, 
 //GetPendingUpdates fetches the pending updates for the specified profile
 //
 //https://api.bufferapp.com/1/profiles/:id/updates/pending
-func (updateService *UpdateService) GetPendingUpdates(profileID string, opt *UpdateListOptions) (*UpdateList, *http.Response, error) {
+func (updateService *UpdateService) GetPendingUpdates(profileID string,
+	opt *UpdateListOptions) (*UpdateList, *http.Response, error) {
 	url := fmt.Sprintf(getPendingUpdates, profileID)
 	return updateService.getUpdateList(url, profileID, opt)
 }
@@ -121,7 +131,160 @@ func (updateService *UpdateService) GetPendingUpdates(profileID string, opt *Upd
 //GetSentUpdates fetches the sent updates for the specified profile
 //
 //https://api.bufferapp.com/1/profiles/:id/updates/sent
-func (updateService *UpdateService) GetSentUpdates(profileID string, opt *UpdateListOptions) (*UpdateList, *http.Response, error) {
+func (updateService *UpdateService) GetSentUpdates(profileID string,
+	opt *UpdateListOptions) (*UpdateList, *http.Response, error) {
+
 	url := fmt.Sprintf(getSentUpdates, profileID)
 	return updateService.getUpdateList(url, profileID, opt)
+}
+
+func (updateService *UpdateService) makeUpdatePost(url string,
+	opt interface{}) (map[string]interface{}, *http.Response, error) {
+
+	req, err := updateService.client.NewRequest("POST", url, opt)
+
+	if err != nil {
+		return nil, nil, err
+	}
+
+	result := make(map[string]interface{})
+	resp, err := updateService.client.Do(req, &result)
+
+	if err != nil {
+		return nil, resp, err
+	}
+	fmt.Println("Response is ", result)
+	return result, resp, err
+
+}
+
+//UpdateReorderOptions specifies the optional parameters to
+// UpdateService.Reorder methods
+type UpdateReorderOptions struct {
+	Order  []string `json:"order"`
+	Offset int      `json:"offset,omitempty"`
+	UTCSet bool     `json:"utc,omitempty"`
+}
+
+//ReorderUpdates reorder the pending updates.
+//
+//https://api.bufferapp.com/1/profiles/:id/updates/reorder.json
+func (updateService *UpdateService) ReorderUpdates(profileID string,
+	opt *UpdateReorderOptions) (bool, *http.Response, error) {
+
+	url := fmt.Sprintf(reorderUpdates, profileID)
+	result, resp, err := updateService.makeUpdatePost(url, opt)
+
+	if err != nil {
+		return false, resp, err
+	}
+
+	return result["success"].(bool), resp, err
+}
+
+//UpdateShuffleOptions specifies the optional parameters to
+// UpdateService.Shuffle methods
+type UpdateShuffleOptions struct {
+	Count  int  `json:"count,omitempty"`
+	UTCSet bool `json:"utc,omitempty"`
+}
+
+//ShuffleUpdates shuffle the pending updates.
+//
+//https://api.bufferapp.com/1/profiles/:id/updates/shuffle.json
+func (updateService *UpdateService) ShuffleUpdates(profileID string,
+	opt *UpdateShuffleOptions) (bool, *http.Response, error) {
+
+	url := fmt.Sprintf(shuffleUpdates, profileID)
+
+	result, resp, err := updateService.makeUpdatePost(url, opt)
+
+	if err != nil {
+		return false, resp, err
+	}
+
+	return result["success"].(bool), resp, err
+}
+
+//UpdateCreateOptions specifies the optional parameters to
+// UpdateService.Create methods
+type UpdateCreateOptions struct {
+	ProfileIDList []string            `url:"profile_ids,brackets"`
+	Text          string              `url:"text,omitempty"`
+	Shorten       bool                `url:"shorten,omitempty"`
+	Now           bool                `url:"bool,omitempty"`
+	Top           bool                `url:"top,omitempty"`
+	Media         []map[string]string `url:"media,omitempty"`
+	Attachment    bool                `url:"attachment,omitempty"`
+}
+
+//CreateUpdates creates a new update
+//
+//https://api.bufferapp.com/1/updates/create.json
+func (updateService *UpdateService) CreateUpdates(
+	opt *UpdateCreateOptions) (*[]Update, *http.Response, error) {
+
+	url := createUpdate
+	req, err := updateService.client.NewRequest("POST", url, opt)
+
+	if err != nil {
+		return nil, nil, err
+	}
+
+	result := make(map[string]interface{})
+	resp, err := updateService.client.Do(req, &result)
+
+	if err != nil {
+		return nil, resp, err
+	}
+
+	updateList := new([]Update)
+
+	err = mapstructure.Decode(result["updates"], updateList)
+
+	if err != nil {
+		return nil, resp, err
+	}
+
+	return updateList, resp, err
+}
+
+//UpdateEditOptions specifies the optional parameters to
+// UpdateService.Edit methods
+type UpdateEditOptions struct {
+	Text   string              `url:"text"`
+	Now    bool                `url:"bool,omitempty"`
+	Media  []map[string]string `url:"media,omitempty"`
+	UTCSet bool                `url:"utc,omitempty"`
+}
+
+//EditUpdate creates a new update
+//
+//https://api.bufferapp.com/1/updates/update.json
+func (updateService *UpdateService) EditUpdate(updateID string,
+	opt *UpdateEditOptions) (*Update, *http.Response, error) {
+
+	url := fmt.Sprintf(editUpdate, updateID)
+	req, err := updateService.client.NewRequest("POST", url, opt)
+
+	if err != nil {
+		return nil, nil, err
+	}
+
+	result := make(map[string]interface{})
+	resp, err := updateService.client.Do(req, &result)
+
+	if err != nil {
+		return nil, resp, err
+	}
+
+	update := new(Update)
+
+	err = mapstructure.Decode(result["update"], update)
+
+	if err != nil {
+		return nil, resp, err
+	}
+
+	return update, resp, err
 }

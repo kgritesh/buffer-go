@@ -78,16 +78,15 @@ func (client *Client) NewRequest(method string, urlStr string, body interface{})
 		return nil, err
 	}
 	reqURL := client.BaseURL.ResolveReference(relative)
-	fmt.Println("Request Url ", reqURL)
-	var buf io.ReadWriter
+
+	var data url.Values
 	if body != nil {
-		buf = new(bytes.Buffer)
-		err := json.NewEncoder(buf).Encode(body)
-		if err != nil {
-			return nil, err
-		}
+		data, _ = query.Values(body)
 	}
-	req, err := http.NewRequest(method, reqURL.String(), buf)
+
+	fmt.Println("Request Url ", reqURL, data.Encode())
+	req, err := http.NewRequest(method, reqURL.String(),
+		bytes.NewBufferString(data.Encode()))
 	if err != nil {
 		return nil, err
 	}
@@ -131,7 +130,6 @@ func (client *Client) Do(req *http.Request, result interface{}) (*http.Response,
 	if err != nil {
 		return nil, err
 	}
-	fmt.Printf("Response %v, Error %v", resp.Body, err)
 
 	defer resp.Body.Close()
 
